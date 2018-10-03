@@ -1,4 +1,6 @@
 ##trying to prune LeNet 300-100 model.
+##tensorflow 1.10.0
+##python version 3.6.2
 
 from tensorflow.examples.tutorials.mnist import input_data
 
