@@ -1,4 +1,4 @@
-##trying to prune LeNet 300-100 model.
+##trying to prune LeNet 300-100 model with noiseout - chunkai
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -162,6 +162,9 @@ def model_prune(_X, _W, _biases):
     initial_weight_matrix_2 = remove_neuron_input(_W['fc2'],final_indices_2[1],final_indices_2[0],slope2)
     _W['fc2'].assign(initial_weight_matrix_2,use_locking=False)
 
+    initial_weight_matrix_2_out = remove_neuron_output(_W['out'],final_indices[1],final_indices[0],slope)
+    _W['out'].assign(initial_weight_matrix_2_out, use_locking=False)
+
     tf.nn.dropout(layer_2, 0.5)
     return tf.matmul(layer_2, _W['out']) + _biases['out']
 
@@ -222,9 +225,6 @@ with tf.Session() as sess:
         for offset in range(0, num_examples, BATCH_SIZE):
             end = offset + BATCH_SIZE
             batch_x, batch_y = X_train[offset:end], y_train[offset:end]
-            # print(i,offset,LeNet(batch_x))
-            # test_output = LeNet(X_train[1:128])
-            # print(test_output.eval())
             _,loss_val=sess.run([optimizer,loss], feed_dict={x: batch_x, y: batch_y})
             #if cost(W)<=threshold. Threshold selected as 0.02
             if loss_val<=0.20:
@@ -233,8 +233,7 @@ with tf.Session() as sess:
 
                 model_prune(batch_x, W, biases)
                 print(sess.run(W['fc1']))
-                # sess.run(tf.global_variables_initializer())
-                # sess.run(tf.local_variables_initializer())
+
 
 
             
