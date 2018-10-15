@@ -1,6 +1,4 @@
 ##trying to prune LeNet 300-100 model.
-##tensorflow 1.10.0
-##python version 3.6.2
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -72,6 +70,10 @@ def get_correlation_matrix(data_matrix,NUM_OF_FEATURES):
         for j in range(i+1,NUM_OF_FEATURES):
             _, matrix3 = streaming_pearson_correlation(data_matrix[:,i],data_matrix[:,j])
             matrix_of_correlations_variable[i][j]=matrix3
+    
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.local_variables_initializer())
+
     return matrix_of_correlations_variable
 
 def get_matrix_arg_max_indices(tensor_matrix_correlation,NUM_OF_FEATURES):
@@ -86,20 +88,35 @@ def get_matrix_arg_max_indices(tensor_matrix_correlation,NUM_OF_FEATURES):
 def update_bias(bias_matrix,index_to_remove,weight_matrix_prior,intercept):
     initial_bias_matrix = sess.run(bias_matrix)
     initial_weight_matrix = sess.run(weight_matrix_prior)
-    initial_bias_matrix = initial_bias_matrix + weight_matrix_prior[index_to_remove,:]
+    intercept_1 = sess.run(intercept)
+    initial_bias_matrix = initial_bias_matrix + intercept_1*weight_matrix_prior[index_to_remove,:]
     initial_bias_matrix1 = tf.convert_to_tensor(initial_bias_matrix)
     return initial_bias_matrix
 
-def remove_neuron_input(x, final_indices,slope):
-    initial_weight_matrix = sess.run(x)
-    # test_array = sess.run(final_indices)
-    test_array = final_indices
-    index_to_remove = test_array[1]
-    index_to_update = test_array[0]
-    initial_weight_matrix[:,index_to_update] = slope*initial_weight_matrix[:,index_to_remove] + initial_weight_matrix[:,index_to_update] 
-    initial_weight_matrix[:,index_to_remove] = 0
-    initial_weight_matrix1 = tf.convert_to_tensor(initial_weight_matrix)
-    return initial_weight_matrix1
+# def remove_neuron_input(x, final_indices,slope):
+#     initial_weight_matrix = sess.run(x)
+#     # test_array = sess.run(final_indices)
+#     test_array = final_indices
+#     index_to_remove = test_array[1]
+#     index_to_update = test_array[0]
+#     initial_weight_matrix[:,index_to_update] = slope*initial_weight_matrix[:,index_to_remove] + initial_weight_matrix[:,index_to_update] 
+#     initial_weight_matrix[:,index_to_remove] = 0
+#     initial_weight_matrix1 = tf.convert_to_tensor(initial_weight_matrix)
+#     return initial_weight_matrix1
+
+def remove_neuron_input(x, index_to_remove_1,index_to_update_1,slope):
+    initial_weight_matrix = x
+    initial_weight_matrix_1 = initial_weight_matrix
+
+    one = initial_weight_matrix[:,index_to_update_1].assign(initial_weight_matrix[:,index_to_update_1]  + tf.cast(slope,tf.float32)*initial_weight_matrix[:,index_to_remove_1]) 
+
+    shape_test = tf.shape(initial_weight_matrix[:,index_to_remove_1])
+    a = tf.Variable(tf.zeros(shape_test,tf.float32))
+    
+    two = initial_weight_matrix[:,index_to_remove_1].assign(a)
+
+
+    return two
 
 def remove_neuron_output(x,index_to_remove,index_to_update,slope):
     initial_weight_matrix = sess.run(x)
@@ -125,12 +142,11 @@ def model_prune(_X, _W, _biases):
     initial_bias_matrix_1 = update_bias(_biases['fc1'],final_indices[1],_W['fc1'],intercept)
     _biases['fc1'].assign(initial_bias_matrix_1, use_locking=False)
 
-    initial_weight_matrix_1 = remove_neuron_input(_W['fc1'],final_indices,slope)
+    initial_weight_matrix_1 = remove_neuron_input(_W['fc1'],final_indices[1],final_indices[0],slope)
     _W['fc1'].assign(initial_weight_matrix_1, use_locking=False)
 
 
 
-    sess = tf.get_default_session()
     
     tf.nn.dropout(layer_1, 0.5)
 
@@ -202,9 +218,12 @@ with tf.Session() as sess:
             #if cost(W)<=threshold. Threshold selected as 0.02
             if loss_val<=0.20:
                 print(loss_val)
-                print(sess.run(W))
+                print(sess.run(W['fc1']))
 
-                model_prune(x, W, biases)
+                model_prune(batch_x, W, biases)
+                print(sess.run(W['fc1']))
+                # sess.run(tf.global_variables_initializer())
+                # sess.run(tf.local_variables_initializer())
 
 
             
