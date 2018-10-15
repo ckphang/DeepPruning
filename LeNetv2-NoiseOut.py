@@ -21,13 +21,6 @@ print("Test Set:       {} samples".format(len(X_test)))
 
 import numpy as np
 
-# Pad images with 0s
-# X_train      = np.pad(X_train, ((0,0),(2,2),(2,2),(0,0)), 'constant')
-# X_validation = np.pad(X_validation, ((0,0),(2,2),(2,2),(0,0)), 'constant')
-# X_test       = np.pad(X_test, ((0,0),(2,2),(2,2),(0,0)), 'constant')
-    
-# print("Updated Image Shape: {}".format(X_train[0].shape))
-
 import random
 
 import matplotlib.pyplot as plt
