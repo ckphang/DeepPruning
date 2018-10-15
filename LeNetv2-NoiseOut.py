@@ -111,11 +111,20 @@ def remove_neuron_input(x, index_to_remove_1,index_to_update_1,slope):
 
     return two
 
+# def remove_neuron_output(x,index_to_remove,index_to_update,slope):
+#     initial_weight_matrix = sess.run(x)
+#     initial_weight_matrix[index_to_update,:] = slope*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:] 
+#     initial_weight_matrix[index_to_remove,:] = 0
+#     return initial_weight_matrix 
+
 def remove_neuron_output(x,index_to_remove,index_to_update,slope):
-    initial_weight_matrix = sess.run(x)
-    initial_weight_matrix[index_to_update,:] = slope*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:] 
-    initial_weight_matrix[index_to_remove,:] = 0
-    return initial_weight_matrix 
+    initial_weight_matrix = x
+    one = initial_weight_matrix[index_to_update,:].assign(tf.cast(slope,tf.float32)*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:])
+
+    shape_test = tf.shape(initial_weight_matrix[index_to_remove,:])
+    a = tf.Variable(tf.zeros(shape_test,tf.float32)) 
+    two = initial_weight_matrix[index_to_remove,:].assign(a) 
+    return two
 
 def model(_X, _W, _biases):
     layer_1 = tf.nn.relu(tf.add(tf.matmul(_X, _W['fc1']), _biases['fc1']))  # Hidden layer with RELU activation
@@ -134,16 +143,25 @@ def model_prune(_X, _W, _biases):
     #index to remove is always [1]
     initial_bias_matrix_1 = update_bias(_biases['fc1'],final_indices[1],_W['fc1'],intercept)
     _biases['fc1'].assign(initial_bias_matrix_1, use_locking=False)
-
     initial_weight_matrix_1 = remove_neuron_input(_W['fc1'],final_indices[1],final_indices[0],slope)
     _W['fc1'].assign(initial_weight_matrix_1, use_locking=False)
-
-
-
+    initial_weight_matrix_1_out = remove_neuron_output(_W['fc2'],final_indices[1],final_indices[0],slope)
+    _W['fc2'].assign(initial_weight_matrix_1_out, use_locking=False)
     
     tf.nn.dropout(layer_1, 0.5)
 
     layer_2 = tf.nn.relu(tf.add(tf.matmul(layer_1, _W['fc2']), _biases['fc2']))  # Hidden layer with RELU activation
+    matrix_of_correlations_variable_2 = get_correlation_matrix(layer_2,n_hidden_2)
+    tensor_matrix_correlation_2 = tf.convert_to_tensor(matrix_of_correlations_variable_2)
+    final_indices_2 = get_matrix_arg_max_indices(tensor_matrix_correlation_2,n_hidden_2)
+    slope2,intercept2,r_value2,p_value2,std_err2 = tf.py_func(stats.linregress,[layer_2[:,final_indices_2[0]],layer_2[:,final_indices_2[1]]],[tf.float64,tf.float64,tf.float64,tf.float64,tf.float64])
+
+    initial_bias_matrix_2 = update_bias(_biases['fc2'],final_indices_2[1],_W['fc2'],intercept2)
+    _biases['fc2'].assign(initial_bias_matrix_2,use_locking = False)
+
+    initial_weight_matrix_2 = remove_neuron_input(_W['fc2'],final_indices_2[1],final_indices_2[0],slope2)
+    _W['fc2'].assign(initial_weight_matrix_2,use_locking=False)
+
     tf.nn.dropout(layer_2, 0.5)
     return tf.matmul(layer_2, _W['out']) + _biases['out']
 
