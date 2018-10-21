@@ -1,4 +1,4 @@
-##trying to prune LeNet 300-100 model with noiseout - chunkai
+##trying to prune LeNet 300-100 model.
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -26,9 +26,11 @@ import random
 import matplotlib.pyplot as plt
 
 from scipy import stats
-
+from scipy.stats.stats import pearsonr 
 
 from sklearn.utils import shuffle
+
+np.set_printoptions(threshold=10)
 
 X_train, y_train = shuffle(X_train, y_train)
 
@@ -44,8 +46,8 @@ from tensorflow.contrib.metrics import streaming_pearson_correlation
 print('hello')
 
 
-n_hidden_1 = 10  # 1st layer num features
-n_hidden_2 = 100  # 2nd layer num features
+n_hidden_1 = 30  # 1st layer num features
+n_hidden_2 = 30  # 2nd layer num features
 n_input = 784  # MNIST data input (img shape: 28*28)
 n_classes = 10  # MNIST total classes (0-9 digits)
 learning_rate_ini = 0.001
@@ -54,18 +56,33 @@ learning_rate_ini = 0.001
 x = tf.placeholder("float", [None, n_input])
 y = tf.placeholder("float", [None, n_classes])
 
-def get_correlation_matrix(data_matrix,NUM_OF_FEATURES):
+def get_correlation_matrix(data_matrix1,NUM_OF_FEATURES):
     
     ##Create Matrix to store correlations of neuron output
+    data_matrix2 = sess.run([data_matrix1])
+    data_matrix = data_matrix2[0]
+
     matrix_of_correlations_variable = [[0.0 for x in range(NUM_OF_FEATURES)] for y in range(NUM_OF_FEATURES)]
 
     for i in range( NUM_OF_FEATURES):
         for j in range(i+1,NUM_OF_FEATURES):
-            _, matrix3 = streaming_pearson_correlation(data_matrix[:,i],data_matrix[:,j])
+            matrix3,_ = pearsonr(data_matrix[:,i],data_matrix[:,j])
             matrix_of_correlations_variable[i][j]=matrix3
+
+    return matrix_of_correlations_variable
+
+def get_correlation_matrix_original(data_matrix1,NUM_OF_FEATURES):
     
-    sess.run(tf.global_variables_initializer())
-    sess.run(tf.local_variables_initializer())
+    ##Create Matrix to store correlations of neuron output
+    data_matrix = sess.run([data_matrix1])
+    data_matrix = np.array(data_matrix)
+
+    matrix_of_correlations_variable = [[0.0 for x in range(NUM_OF_FEATURES)] for y in range(NUM_OF_FEATURES)]
+
+    for i in range( NUM_OF_FEATURES):
+        for j in range(i+1,NUM_OF_FEATURES):
+            matrix3,_ = pearsonr(data_matrix[:,i],data_matrix[:,j])
+            matrix_of_correlations_variable[i][j]=matrix3
 
     return matrix_of_correlations_variable
 
@@ -82,49 +99,56 @@ def update_bias(bias_matrix,index_to_remove,weight_matrix_prior,intercept):
     initial_bias_matrix = sess.run(bias_matrix)
     initial_weight_matrix = sess.run(weight_matrix_prior)
     intercept_1 = sess.run(intercept)
-    initial_bias_matrix = initial_bias_matrix + intercept_1*weight_matrix_prior[index_to_remove,:]
-    initial_bias_matrix1 = tf.convert_to_tensor(initial_bias_matrix)
-    return initial_bias_matrix
-
-# def remove_neuron_input(x, final_indices,slope):
-#     initial_weight_matrix = sess.run(x)
-#     # test_array = sess.run(final_indices)
-#     test_array = final_indices
-#     index_to_remove = test_array[1]
-#     index_to_update = test_array[0]
-#     initial_weight_matrix[:,index_to_update] = slope*initial_weight_matrix[:,index_to_remove] + initial_weight_matrix[:,index_to_update] 
-#     initial_weight_matrix[:,index_to_remove] = 0
-#     initial_weight_matrix1 = tf.convert_to_tensor(initial_weight_matrix)
-#     return initial_weight_matrix1
+    index_to_remove_1 = sess.run(index_to_remove) 
+    initial_bias_matrix1 = initial_bias_matrix + intercept_1*initial_weight_matrix[index_to_remove_1,:]
+    initial_bias_matrix2 = tf.convert_to_tensor(initial_bias_matrix1)
+    return initial_bias_matrix2
 
 def remove_neuron_input(x, index_to_remove_1,index_to_update_1,slope):
-    initial_weight_matrix = x
-    initial_weight_matrix_1 = initial_weight_matrix
+    initial_weight_matrix = sess.run(x)
+    # test_array = sess.run(final_indices)
+    index_to_remove_2 = sess.run(index_to_remove_1)
+    index_to_update_2 = sess.run(index_to_update_1)
+    slope2 = sess.run(slope)
 
-    one = initial_weight_matrix[:,index_to_update_1].assign(initial_weight_matrix[:,index_to_update_1]  + tf.cast(slope,tf.float32)*initial_weight_matrix[:,index_to_remove_1]) 
+    initial_weight_matrix[:,index_to_update_2] = slope2*initial_weight_matrix[:,index_to_remove_2] + initial_weight_matrix[:,index_to_update_2] 
+    initial_weight_matrix[:,index_to_remove_2] = 0
+    initial_weight_matrix1 = tf.convert_to_tensor(initial_weight_matrix)
+    return initial_weight_matrix1
 
-    shape_test = tf.shape(initial_weight_matrix[:,index_to_remove_1])
-    a = tf.Variable(tf.zeros(shape_test,tf.float32))
+
+
+# def remove_neuron_input(x, index_to_remove_1,index_to_update_1,slope):
+#     initial_weight_matrix = x
+#     initial_weight_matrix_1 = initial_weight_matrix
+
+#     one = initial_weight_matrix[:,index_to_update_1].assign(initial_weight_matrix[:,index_to_update_1]  + tf.cast(slope,tf.float32)*initial_weight_matrix[:,index_to_remove_1]) 
+
+#     shape_test = tf.shape(initial_weight_matrix[:,index_to_remove_1])
+#     a = tf.Variable(tf.zeros(shape_test,tf.float32))
     
-    two = initial_weight_matrix[:,index_to_remove_1].assign(a)
+#     two = initial_weight_matrix[:,index_to_remove_1].assign(a)
 
-
-    return two
-
-# def remove_neuron_output(x,index_to_remove,index_to_update,slope):
-#     initial_weight_matrix = sess.run(x)
-#     initial_weight_matrix[index_to_update,:] = slope*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:] 
-#     initial_weight_matrix[index_to_remove,:] = 0
-#     return initial_weight_matrix 
+#     return two
 
 def remove_neuron_output(x,index_to_remove,index_to_update,slope):
-    initial_weight_matrix = x
-    one = initial_weight_matrix[index_to_update,:].assign(tf.cast(slope,tf.float32)*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:])
+    initial_weight_matrix = sess.run(x)
+    index_to_remove_1 = sess.run(index_to_remove)
+    index_to_update_1 = sess.run(index_to_update)
+    slope1 = sess.run(slope)
+    initial_weight_matrix[index_to_update_1,:] = slope1*initial_weight_matrix[index_to_remove_1,:] + initial_weight_matrix[index_to_update_1,:] 
+    initial_weight_matrix[index_to_remove_1,:] = 0
+    initial_weight_matrix1 = tf.convert_to_tensor(initial_weight_matrix)
+    return initial_weight_matrix1 
 
-    shape_test = tf.shape(initial_weight_matrix[index_to_remove,:])
-    a = tf.Variable(tf.zeros(shape_test,tf.float32)) 
-    two = initial_weight_matrix[index_to_remove,:].assign(a) 
-    return two
+# def remove_neuron_output(x,index_to_remove,index_to_update,slope):
+#     initial_weight_matrix = x
+#     one = initial_weight_matrix[index_to_update,:].assign(tf.cast(slope,tf.float32)*initial_weight_matrix[index_to_remove,:] + initial_weight_matrix[index_to_update,:])
+
+#     shape_test = tf.shape(initial_weight_matrix[index_to_remove,:])
+#     a = tf.Variable(tf.zeros(shape_test,tf.float32)) 
+#     two = initial_weight_matrix[index_to_remove,:].assign(a) 
+#     return two
 
 def model(_X, _W, _biases):
     layer_1 = tf.nn.relu(tf.add(tf.matmul(_X, _W['fc1']), _biases['fc1']))  # Hidden layer with RELU activation
@@ -133,6 +157,7 @@ def model(_X, _W, _biases):
     tf.nn.dropout(layer_2, 0.5)
     return tf.matmul(layer_2, _W['out']) + _biases['out']
 
+
 def model_prune(_X, _W, _biases):
     layer_1 = tf.nn.relu(tf.add(tf.matmul(_X, _W['fc1']), _biases['fc1']))  # Hidden layer with RELU activation
     matrix_of_correlations_variable = get_correlation_matrix(layer_1,n_hidden_1)
@@ -140,15 +165,18 @@ def model_prune(_X, _W, _biases):
     final_indices = get_matrix_arg_max_indices(tensor_matrix_correlation,n_hidden_1)
     slope, intercept, r_value, p_value, std_err= tf.py_func(stats.linregress,[layer_1[:,final_indices[0]],layer_1[:,final_indices[1]]],[tf.float64,tf.float64,tf.float64,tf.float64,tf.float64])
 
-    #index to remove is always [1]
+    # #index to remove is always [1]
     initial_bias_matrix_1 = update_bias(_biases['fc1'],final_indices[1],_W['fc1'],intercept)
-    _biases['fc1'].assign(initial_bias_matrix_1, use_locking=False)
+    assign_bias_op1 =_biases['fc1'].assign(initial_bias_matrix_1, use_locking=False)
+    sess.run(assign_bias_op1)
     initial_weight_matrix_1 = remove_neuron_input(_W['fc1'],final_indices[1],final_indices[0],slope)
-    _W['fc1'].assign(initial_weight_matrix_1, use_locking=False)
+    assign_weight1_op = _W['fc1'].assign(initial_weight_matrix_1, use_locking=False)
+    sess.run(assign_weight1_op)
     initial_weight_matrix_1_out = remove_neuron_output(_W['fc2'],final_indices[1],final_indices[0],slope)
-    _W['fc2'].assign(initial_weight_matrix_1_out, use_locking=False)
+    assign_weight1out_op = _W['fc2'].assign(initial_weight_matrix_1_out, use_locking=False)
+    sess.run(assign_weight1out_op)
     
-    tf.nn.dropout(layer_1, 0.5)
+    # # tf.nn.dropout(layer_1, 0.5)
 
     layer_2 = tf.nn.relu(tf.add(tf.matmul(layer_1, _W['fc2']), _biases['fc2']))  # Hidden layer with RELU activation
     matrix_of_correlations_variable_2 = get_correlation_matrix(layer_2,n_hidden_2)
@@ -157,16 +185,19 @@ def model_prune(_X, _W, _biases):
     slope2,intercept2,r_value2,p_value2,std_err2 = tf.py_func(stats.linregress,[layer_2[:,final_indices_2[0]],layer_2[:,final_indices_2[1]]],[tf.float64,tf.float64,tf.float64,tf.float64,tf.float64])
 
     initial_bias_matrix_2 = update_bias(_biases['fc2'],final_indices_2[1],_W['fc2'],intercept2)
-    _biases['fc2'].assign(initial_bias_matrix_2,use_locking = False)
+    assign_bias_op2 = _biases['fc2'].assign(initial_bias_matrix_2,use_locking = False)
+    sess.run(assign_bias_op2)
 
     initial_weight_matrix_2 = remove_neuron_input(_W['fc2'],final_indices_2[1],final_indices_2[0],slope2)
-    _W['fc2'].assign(initial_weight_matrix_2,use_locking=False)
+    assign_weight2_op=_W['fc2'].assign(initial_weight_matrix_2,use_locking=False)
+    sess.run(assign_weight2_op)
 
     initial_weight_matrix_2_out = remove_neuron_output(_W['out'],final_indices[1],final_indices[0],slope)
-    _W['out'].assign(initial_weight_matrix_2_out, use_locking=False)
-
-    tf.nn.dropout(layer_2, 0.5)
-    return tf.matmul(layer_2, _W['out']) + _biases['out']
+    assign_weight2out_op = _W['out'].assign(initial_weight_matrix_2_out, use_locking=False)
+    sess.run(assign_weight2out_op)
+    # # tf.nn.dropout(layer_2, 0.5)
+    return initial_bias_matrix_1
+    # return tf.matmul(layer_2, _W['out']) + _biases['out']
 
 # Store layers weight & bias
 W = {
@@ -228,11 +259,25 @@ with tf.Session() as sess:
             _,loss_val=sess.run([optimizer,loss], feed_dict={x: batch_x, y: batch_y})
             #if cost(W)<=threshold. Threshold selected as 0.02
             if loss_val<=0.20:
-                print(loss_val)
-                print(sess.run(W['fc1']))
+                # print(loss_val)
+                print('Start')
+                # bias_test0 = tf.Print(biases['fc1'],[biases['fc1']], summarize = 900)
+                weight_test0 = tf.Print(W['fc1'],[W['fc1']], summarize = 900)                
 
-                model_prune(batch_x, W, biases)
-                print(sess.run(W['fc1']))
+                # print(sess.run(bias_test0))
+                print(sess.run(weight_test0))
+
+                pred1=model_prune(batch_x, W, biases)
+                print('pred')
+                print(sess.run([pred1]))
+
+                # bias_test = tf.Print(biases['fc1'],[biases['fc1']], summarize = 900)
+                weight_test = tf.Print(W['fc1'],[W['fc1']], summarize = 900)
+
+                print(sess.run(weight_test))
+                print('end')
+
+                # print(sess.run(W['fc1']))
 
 
 
