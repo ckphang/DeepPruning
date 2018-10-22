@@ -46,8 +46,8 @@ from tensorflow.contrib.metrics import streaming_pearson_correlation
 print('hello')
 
 
-n_hidden_1 = 30  # 1st layer num features
-n_hidden_2 = 30  # 2nd layer num features
+n_hidden_1 = 50  # 1st layer num features
+n_hidden_2 = 50  # 2nd layer num features
 n_input = 784  # MNIST data input (img shape: 28*28)
 n_classes = 10  # MNIST total classes (0-9 digits)
 learning_rate_ini = 0.001
@@ -65,26 +65,34 @@ def get_correlation_matrix(data_matrix1,NUM_OF_FEATURES):
     matrix_of_correlations_variable = [[0.0 for x in range(NUM_OF_FEATURES)] for y in range(NUM_OF_FEATURES)]
 
     for i in range( NUM_OF_FEATURES):
+        if np.sum(data_matrix[:,i])==0:
+            pass
         for j in range(i+1,NUM_OF_FEATURES):
+            if np.sum(data_matrix[:,j])==0:
+                pass
             matrix3,_ = pearsonr(data_matrix[:,i],data_matrix[:,j])
             matrix_of_correlations_variable[i][j]=matrix3
 
     return matrix_of_correlations_variable
 
-def get_correlation_matrix_original(data_matrix1,NUM_OF_FEATURES):
+# def get_correlation_matrix_original(data_matrix1,NUM_OF_FEATURES):
     
-    ##Create Matrix to store correlations of neuron output
-    data_matrix = sess.run([data_matrix1])
-    data_matrix = np.array(data_matrix)
+#     ##Create Matrix to store correlations of neuron output
+#     data_matrix = sess.run([data_matrix1])
+#     data_matrix = np.array(data_matrix)
 
-    matrix_of_correlations_variable = [[0.0 for x in range(NUM_OF_FEATURES)] for y in range(NUM_OF_FEATURES)]
+#     matrix_of_correlations_variable = [[0.0 for x in range(NUM_OF_FEATURES)] for y in range(NUM_OF_FEATURES)]
 
-    for i in range( NUM_OF_FEATURES):
-        for j in range(i+1,NUM_OF_FEATURES):
-            matrix3,_ = pearsonr(data_matrix[:,i],data_matrix[:,j])
-            matrix_of_correlations_variable[i][j]=matrix3
+#     for i in range( NUM_OF_FEATURES):
+#         if np.sum(data_matrix[:,i])==0:
+#             pass
+#         for j in range(i+1,NUM_OF_FEATURES):
+#             if np.sum(data_matrix[:,j])==0:
+#                 pass
+#             matrix3,_ = pearsonr(data_matrix[:,i],data_matrix[:,j])
+#             matrix_of_correlations_variable[i][j]=matrix3
 
-    return matrix_of_correlations_variable
+#     return matrix_of_correlations_variable
 
 def get_matrix_arg_max_indices(tensor_matrix_correlation,NUM_OF_FEATURES):
 
@@ -196,7 +204,7 @@ def model_prune(_X, _W, _biases):
     assign_weight2out_op = _W['out'].assign(initial_weight_matrix_2_out, use_locking=False)
     sess.run(assign_weight2out_op)
     # # tf.nn.dropout(layer_2, 0.5)
-    return initial_bias_matrix_1
+    return final_indices
     # return tf.matmul(layer_2, _W['out']) + _biases['out']
 
 # Store layers weight & bias
@@ -272,16 +280,30 @@ with tf.Session() as sess:
                 print(sess.run([pred1]))
 
                 # bias_test = tf.Print(biases['fc1'],[biases['fc1']], summarize = 900)
-                weight_test = tf.Print(W['fc1'],[W['fc1']], summarize = 900)
+                # weight_test = tf.Print(W['fc1'],[W['fc1']], summarize = 900)
 
-                print(sess.run(weight_test))
+                # print(sess.run(weight_test))
+
+                w_fc1, w_fc2, w_out = sess.run([W['fc1'],W['fc2'],W['out']])
+                sparsity = np.count_nonzero(w_fc1)
+                sparsity += np.count_nonzero(w_fc2)
+                sparsity += np.count_nonzero(w_out)
+                num_parameter = np.size(w_fc1)
+                num_parameter += np.size(w_fc2)
+                num_parameter += np.size(w_out)
+                total_sparsity = float(sparsity)/float(num_parameter)
+                print ("Total Sparsity= ", sparsity, "/", num_parameter, \
+                " = ", total_sparsity*100, "%")
+                print ("Compression Rate = ", float(num_parameter)/float(sparsity))
+
+
                 print('end')
 
                 # print(sess.run(W['fc1']))
 
 
+        
 
-            
         validation_accuracy = evaluate(X_validation, y_validation)
         print("EPOCH {} ...".format(i+1))
         print("Validation Accuracy = {:.3f}".format(validation_accuracy))
