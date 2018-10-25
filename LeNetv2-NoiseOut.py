@@ -46,8 +46,8 @@ from tensorflow.contrib.metrics import streaming_pearson_correlation
 print('hello')
 
 
-n_hidden_1 = 50  # 1st layer num features
-n_hidden_2 = 50  # 2nd layer num features
+n_hidden_1 = 20  # 1st layer num features
+n_hidden_2 = 20  # 2nd layer num features
 n_input = 784  # MNIST data input (img shape: 28*28)
 n_classes = 10  # MNIST total classes (0-9 digits)
 learning_rate_ini = 0.001
@@ -204,7 +204,7 @@ def model_prune(_X, _W, _biases):
     assign_weight2out_op = _W['out'].assign(initial_weight_matrix_2_out, use_locking=False)
     sess.run(assign_weight2out_op)
     # # tf.nn.dropout(layer_2, 0.5)
-    return final_indices
+    return final_indices, tensor_matrix_correlation
     # return tf.matmul(layer_2, _W['out']) + _biases['out']
 
 # Store layers weight & bias
@@ -270,14 +270,15 @@ with tf.Session() as sess:
                 # print(loss_val)
                 print('Start')
                 # bias_test0 = tf.Print(biases['fc1'],[biases['fc1']], summarize = 900)
-                weight_test0 = tf.Print(W['fc1'],[W['fc1']], summarize = 900)                
+                # weight_test0 = tf.Print(W['fc1'],[W['fc1']], summarize = 900)                
 
                 # print(sess.run(bias_test0))
-                print(sess.run(weight_test0))
+                # print(sess.run(weight_test0))
 
-                pred1=model_prune(batch_x, W, biases)
+                pred1,correlation_matrix=model_prune(batch_x, W, biases)
+                correl_print = tf.Print(correlation_matrix,[correlation_matrix],summarize=500)
                 print('pred')
-                print(sess.run([pred1]))
+                print(sess.run([pred1,correl_print]))
 
                 # bias_test = tf.Print(biases['fc1'],[biases['fc1']], summarize = 900)
                 # weight_test = tf.Print(W['fc1'],[W['fc1']], summarize = 900)
@@ -286,11 +287,11 @@ with tf.Session() as sess:
 
                 w_fc1, w_fc2, w_out = sess.run([W['fc1'],W['fc2'],W['out']])
                 sparsity = np.count_nonzero(w_fc1)
-                sparsity += np.count_nonzero(w_fc2)
-                sparsity += np.count_nonzero(w_out)
+                # sparsity += np.count_nonzero(w_fc2)
+                # sparsity += np.count_nonzero(w_out)
                 num_parameter = np.size(w_fc1)
-                num_parameter += np.size(w_fc2)
-                num_parameter += np.size(w_out)
+                # num_parameter += np.size(w_fc2)
+                # num_parameter += np.size(w_out)
                 total_sparsity = float(sparsity)/float(num_parameter)
                 print ("Total Sparsity= ", sparsity, "/", num_parameter, \
                 " = ", total_sparsity*100, "%")
